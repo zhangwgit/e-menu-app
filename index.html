@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="电子菜单">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="manifest" href="manifest.json">
+  <title>电子菜单 - 在线点餐</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部导航 -->
+    <header class="top-bar">
+      <h1 class="logo">🍽️ 美味餐厅</h1>
+      <div class="top-actions">
+        <button class="btn-icon" id="btnOrders" title="我的订单">📋</button>
+        <button class="btn-icon cart-btn" id="btnCart" title="购物车">
+          🛒 <span class="cart-badge" id="cartBadge">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- 分类导航 -->
+    <nav class="category-nav" id="categoryNav"></nav>
+
+    <!-- 搜索栏 -->
+    <div class="search-bar">
+      <input type="text" id="searchInput" placeholder="🔍 搜索菜品..." autocomplete="off">
+    </div>
+
+    <!-- 菜品列表 -->
+    <main class="menu-list" id="menuList"></main>
+
+    <!-- 空状态 -->
+    <div class="empty-state" id="emptyState" style="display:none">
+      <div class="empty-icon">🍜</div>
+      <p>暂无菜品，请等待商家上架</p>
+    </div>
+
+    <!-- 购物车抽屉 -->
+    <div class="overlay" id="cartOverlay"></div>
+    <div class="drawer" id="cartDrawer">
+      <div class="drawer-header">
+        <h2>🛒 购物车</h2>
+        <button class="btn-close" id="btnCloseCart">&times;</button>
+      </div>
+      <div class="cart-items" id="cartItems"></div>
+      <div class="cart-empty" id="cartEmpty">购物车是空的</div>
+      <div class="cart-footer" id="cartFooter">
+        <div class="cart-total">合计: <strong id="cartTotal">¥0.00</strong></div>
+        <button class="btn-primary btn-block" id="btnCheckout">去下单</button>
+      </div>
+    </div>
+
+    <!-- 下单弹窗 -->
+    <div class="modal-overlay" id="orderModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2>确认订单</h2>
+          <button class="btn-close" id="btnCloseOrder">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>桌号 / 取餐号</label>
+            <input type="text" id="tableNo" placeholder="请输入桌号" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>备注</label>
+            <textarea id="orderRemark" placeholder="如有特殊要求请备注..." class="form-input" rows="2"></textarea>
+          </div>
+          <div class="order-summary" id="orderSummary"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-primary btn-block" id="btnSubmitOrder">提交订单</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 订单列表弹窗 -->
+    <div class="modal-overlay" id="ordersModal">
+      <div class="modal modal-lg">
+        <div class="modal-header">
+          <h2>📋 我的订单</h2>
+          <button class="btn-close" id="btnCloseOrders">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div class="orders-list" id="ordersList"></div>
+          <div class="cart-empty" id="ordersEmpty">暂无订单记录</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 随机点菜按钮 -->
+    <button class="dice-trigger" id="btnDice">
+      <span class="dice-trigger-icon">🎲</span>
+      <span>随机点菜</span>
+    </button>
+
+    <!-- 骰子全屏遮罩 -->
+    <div class="dice-overlay" id="diceOverlay">
+      <div class="dice-scene">
+        <!-- 粒子/光效 -->
+        <div class="dice-particles" id="diceParticles"></div>
+        <!-- 3D 骰子 -->
+        <div class="dice-cube" id="diceCube">
+          <div class="dice-face dice-front">🍗</div>
+          <div class="dice-face dice-back">🌶️</div>
+          <div class="dice-face dice-right">🍚</div>
+          <div class="dice-face dice-left">🍜</div>
+          <div class="dice-face dice-top">🥩</div>
+          <div class="dice-face dice-bottom">🍮</div>
+        </div>
+        <!-- 速度线 -->
+        <div class="speed-lines" id="speedLines"></div>
+      </div>
+      <div class="dice-hint" id="diceHint">命运之骰正在转动...</div>
+    </div>
+
+    <!-- 骰子结果弹窗 -->
+    <div class="dice-result" id="diceResult">
+      <div class="dice-result-card">
+        <div class="dice-result-badge">🎲 命运菜品</div>
+        <div class="dice-result-img" id="diceResultImg"></div>
+        <h2 class="dice-result-name" id="diceResultName"></h2>
+        <p class="dice-result-desc" id="diceResultDesc"></p>
+        <div class="dice-result-price" id="diceResultPrice"></div>
+        <div class="dice-result-actions">
+          <button class="btn-dice-order" id="btnDiceOrder">加入购物车</button>
+          <button class="btn-dice-reroll" id="btnDiceReroll">再掷一次</button>
+        </div>
+        <button class="btn-dice-close" id="btnDiceClose">✕</button>
+      </div>
+    </div>
+
+    <!-- 下单成功提示 -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
