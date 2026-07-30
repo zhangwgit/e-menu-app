@@ -1,0 +1,5 @@
+{
+  "buildCommand": "",
+  "outputDirectory": ".",
+  "ignoreCommand": "echo skip"
+}
