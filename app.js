@@ -233,7 +233,7 @@ async function submitOrder() {
 
   const order = {
     id: 'ORD' + Date.now(),
-    tableNo,
+    table_no: tableNo,
     remark,
     items: cart.map(c => ({ name: c.name, price: c.price, qty: c.qty })),
     total: sum,
@@ -263,7 +263,7 @@ async function openOrdersList() {
     ordersList.innerHTML = orders.map(o => `
       <div class="order-card">
         <div class="order-card-header">
-          <span class="order-no">${o.id} · 桌号 ${o.tableNo}</span>
+          <span class="order-no">${o.id} · 桌号 ${o.table_no}</span>
           <span class="order-status ${o.status === 'pending' ? 'pending' : 'done'}">
             ${o.status === 'pending' ? '制作中' : '已完成'}
           </span>
