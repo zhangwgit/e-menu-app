@@ -243,7 +243,7 @@ async function renderOrders() {
       <div class="order-header-row">
         <div>
           <div style="font-weight:600;font-size:14px">${o.id}</div>
-          <div style="font-size:13px;color:var(--text-secondary)">桌号: ${o.tableNo} · ${o.time}</div>
+          <div style="font-size:13px;color:var(--text-secondary)">桌号: ${o.table_no} · ${o.time}</div>
           ${o.remark ? `<div style="font-size:12px;color:#ff6b35;margin-top:2px">备注: ${o.remark}</div>` : ''}
         </div>
         ${o.status === 'pending' ? `<button class="btn-status btn-mark-done" data-action="mark-done" data-id="${o.id}">完成</button>` : '<span class="order-status done">已完成</span>'}
