@@ -33,14 +33,15 @@ const Store = {
       catch { return []; }
     }
   },
-  async saveDishes(dishes) {
+  async saveDish(dish) {
     try {
-      // Upsert all dishes
-      const res = await sbReq('POST', '/dishes?on_conflict=id', dishes, { resolution: 'merge-duplicates' });
-      if (res.status >= 200 && res.status < 300) {
-        localStorage.setItem('emenu_dishes', JSON.stringify(dishes));
-      }
-    } catch (e) { console.error('saveDishes error:', e); }
+      // Upsert single dish (batch rows must share identical keys, so save one at a time)
+      const res = await sbReq('POST', '/dishes?on_conflict=id', [dish], { resolution: 'merge-duplicates' });
+      return res.status >= 200 && res.status < 300;
+    } catch (e) {
+      console.error('saveDish error:', e);
+      return false;
+    }
   },
   async deleteDish(id) {
     try {
@@ -189,7 +190,6 @@ $('btnSaveDish').addEventListener('click', async () => {
   if (isNaN(price) || price < 0) { showToast('请输入有效价格'); return; }
 
   const editId = $('editId').value;
-  let dishes = await Store.getDishes();
 
   const dishData = {
     id: editId || 'dish_' + Date.now(),
@@ -201,16 +201,10 @@ $('btnSaveDish').addEventListener('click', async () => {
     image: currentImage
   };
 
-  if (editId) {
-    const idx = dishes.findIndex(d => d.id === editId);
-    if (idx !== -1) dishes[idx] = dishData;
-    showToast('菜品已更新');
-  } else {
-    dishes.push(dishData);
-    showToast('菜品已添加');
-  }
+  const ok = await Store.saveDish(dishData);
+  if (!ok) { showToast('保存失败，请检查网络后重试'); return; }
+  showToast(editId ? '菜品已更新' : '菜品已添加');
 
-  await Store.saveDishes(dishes);
   resetForm();
   switchTab('dishes');
 });
@@ -294,7 +288,7 @@ async function init() {
       { id: 'demo7', name: '红烧肉', category: '热菜', price: 48, desc: '肥而不腻，入口即化', emoji: '🥩', image: '' },
       { id: 'demo8', name: '芒果布丁', category: '甜点', price: 16, desc: '细腻顺滑，芒果飘香', emoji: '🍮', image: '' }
     ];
-    await Store.saveDishes(demoDishes);
+    for (const d of demoDishes) await Store.saveDish(d);
     await renderDishes();
   }
 }
