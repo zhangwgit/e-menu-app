@@ -1,18 +1,67 @@
-// ===== Data Layer =====
+// ===== Supabase Cloud Store =====
+const SUPABASE_URL = 'https://nfgqlcurdxvlylovstgh.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5mZ3FsY3VyZHh2bHlsb3ZzdGdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzOTEzMTYsImV4cCI6MjEwMDk2NzMxNn0.nTuCUoIRkbcAFVEFb7IqUJqAlXLHuHKCNnByYxkO7zI';
+
+function sbReq(method, path, body, opts) {
+  return new Promise((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : null;
+    const req = new XMLHttpRequest();
+    req.open(method, `${SUPABASE_URL}/rest/v1${path}`, true);
+    req.setRequestHeader('apikey', SUPABASE_ANON);
+    req.setRequestHeader('Authorization', `Bearer ${SUPABASE_ANON}`);
+    if (data) req.setRequestHeader('Content-Type', 'application/json');
+    if (method === 'POST' || method === 'PATCH' || method === 'DELETE') {
+      const prefer = ['return=representation'];
+      if (opts && opts.resolution) prefer.push(`resolution=${opts.resolution}`);
+      req.setRequestHeader('Prefer', prefer.join(','));
+    }
+    req.onload = () => resolve({ status: req.status, data: req.responseText ? JSON.parse(req.responseText) : null });
+    req.onerror = () => reject(new Error('Network error'));
+    req.send(data);
+  });
+}
+
 const Store = {
-  getDishes() {
-    try { return JSON.parse(localStorage.getItem('emenu_dishes') || '[]'); }
-    catch { return []; }
+  async getDishes() {
+    try {
+      const res = await sbReq('GET', '/dishes?select=*&order=created_at.desc');
+      if (res.status >= 200 && res.status < 300) return Array.isArray(res.data) ? res.data : [];
+      return [];
+    } catch (e) {
+      console.error('getDishes error:', e);
+      try { return JSON.parse(localStorage.getItem('emenu_dishes') || '[]'); }
+      catch { return []; }
+    }
   },
-  saveDishes(dishes) {
-    localStorage.setItem('emenu_dishes', JSON.stringify(dishes));
+  async saveDishes(dishes) {
+    try {
+      // Upsert all dishes
+      const res = await sbReq('POST', '/dishes?on_conflict=id', dishes, { resolution: 'merge-duplicates' });
+      if (res.status >= 200 && res.status < 300) {
+        localStorage.setItem('emenu_dishes', JSON.stringify(dishes));
+      }
+    } catch (e) { console.error('saveDishes error:', e); }
   },
-  getOrders() {
-    try { return JSON.parse(localStorage.getItem('emenu_orders') || '[]'); }
-    catch { return []; }
+  async deleteDish(id) {
+    try {
+      await sbReq('DELETE', `/dishes?id=eq.${id}`);
+    } catch (e) { console.error('deleteDish error:', e); }
   },
-  saveOrders(orders) {
-    localStorage.setItem('emenu_orders', JSON.stringify(orders));
+  async getOrders() {
+    try {
+      const res = await sbReq('GET', '/orders?select=*&order=created_at.desc');
+      if (res.status >= 200 && res.status < 300) return Array.isArray(res.data) ? res.data : [];
+      return [];
+    } catch (e) {
+      console.error('getOrders error:', e);
+      try { return JSON.parse(localStorage.getItem('emenu_orders') || '[]'); }
+      catch { return []; }
+    }
+  },
+  async updateOrderStatus(id, status) {
+    try {
+      await sbReq('PATCH', `/orders?id=eq.${id}`, { status });
+    } catch (e) { console.error('updateOrderStatus error:', e); }
   }
 };
 
@@ -44,8 +93,8 @@ function switchTab(name) {
 }
 
 // ===== Render Dishes =====
-function renderDishes() {
-  const dishes = Store.getDishes();
+async function renderDishes() {
+  const dishes = await Store.getDishes();
   if (dishes.length === 0) {
     dishList.innerHTML = '';
     noDishes.style.display = 'block';
@@ -71,25 +120,23 @@ function renderDishes() {
 }
 
 // ===== Dish Actions =====
-dishList.addEventListener('click', e => {
+dishList.addEventListener('click', async e => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const { action, id } = btn.dataset;
-  if (action === 'delete') deleteDish(id);
-  else if (action === 'edit') editDish(id);
+  if (action === 'delete') await deleteDish(id);
+  else if (action === 'edit') await editDish(id);
 });
 
-function deleteDish(id) {
+async function deleteDish(id) {
   if (!confirm('确定删除这道菜吗？')) return;
-  let dishes = Store.getDishes();
-  dishes = dishes.filter(d => d.id !== id);
-  Store.saveDishes(dishes);
-  renderDishes();
+  await Store.deleteDish(id);
+  await renderDishes();
   showToast('已删除');
 }
 
-function editDish(id) {
-  const dishes = Store.getDishes();
+async function editDish(id) {
+  const dishes = await Store.getDishes();
   const dish = dishes.find(d => d.id === id);
   if (!dish) return;
 
@@ -135,14 +182,14 @@ function resetImageArea() {
 }
 
 // ===== Save Dish =====
-$('btnSaveDish').addEventListener('click', () => {
+$('btnSaveDish').addEventListener('click', async () => {
   const name = $('dishName').value.trim();
   const price = parseFloat($('dishPrice').value);
   if (!name) { showToast('请输入菜品名称'); return; }
   if (isNaN(price) || price < 0) { showToast('请输入有效价格'); return; }
 
   const editId = $('editId').value;
-  let dishes = Store.getDishes();
+  let dishes = await Store.getDishes();
 
   const dishData = {
     id: editId || 'dish_' + Date.now(),
@@ -163,7 +210,7 @@ $('btnSaveDish').addEventListener('click', () => {
     showToast('菜品已添加');
   }
 
-  Store.saveDishes(dishes);
+  await Store.saveDishes(dishes);
   resetForm();
   switchTab('dishes');
 });
@@ -183,8 +230,8 @@ function resetForm() {
 }
 
 // ===== Render Orders =====
-function renderOrders() {
-  const orders = Store.getOrders();
+async function renderOrders() {
+  const orders = await Store.getOrders();
   if (orders.length === 0) {
     adminOrderList.innerHTML = '';
     noOrders.style.display = 'block';
@@ -209,18 +256,13 @@ function renderOrders() {
   `).join('');
 }
 
-adminOrderList.addEventListener('click', e => {
+adminOrderList.addEventListener('click', async e => {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   if (btn.dataset.action === 'mark-done') {
-    const orders = Store.getOrders();
-    const order = orders.find(o => o.id === btn.dataset.id);
-    if (order) {
-      order.status = 'done';
-      Store.saveOrders(orders);
-      renderOrders();
-      showToast('订单已完成');
-    }
+    await Store.updateOrderStatus(btn.dataset.id, 'done');
+    await renderOrders();
+    showToast('订单已完成');
   }
 });
 
@@ -238,20 +280,30 @@ function showToast(msg) {
 }
 
 // ===== Init =====
-renderDishes();
-
-// ===== Demo Data (if empty) =====
-if (Store.getDishes().length === 0) {
-  const demoDishes = [
-    { id: 'demo1', name: '宫保鸡丁', category: '热菜', price: 38, desc: '经典川菜，鸡肉配花生米，香辣可口', emoji: '🍗', image: '' },
-    { id: 'demo2', name: '麻婆豆腐', category: '热菜', price: 28, desc: '麻辣鲜香，嫩滑入味', emoji: '🌶️', image: '' },
-    { id: 'demo3', name: '蛋炒饭', category: '主食', price: 18, desc: '粒粒分明，蛋香浓郁', emoji: '🍚', image: '' },
-    { id: 'demo4', name: '酸辣汤', category: '汤品', price: 22, desc: '酸辣开胃，暖身佳品', emoji: '🍜', image: '' },
-    { id: 'demo5', name: '凉拌黄瓜', category: '凉菜', price: 12, desc: '清脆爽口，蒜香开胃', emoji: '🥒', image: '' },
-    { id: 'demo6', name: '柠檬水', category: '饮品', price: 8, desc: '新鲜柠檬，清凉解渴', emoji: '🍋', image: '' },
-    { id: 'demo7', name: '红烧肉', category: '热菜', price: 48, desc: '肥而不腻，入口即化', emoji: '🥩', image: '' },
-    { id: 'demo8', name: '芒果布丁', category: '甜点', price: 16, desc: '细腻顺滑，芒果飘香', emoji: '🍮', image: '' }
-  ];
-  Store.saveDishes(demoDishes);
-  renderDishes();
+async function init() {
+  await renderDishes();
+  const dishes = await Store.getDishes();
+  if (dishes.length === 0) {
+    const demoDishes = [
+      { id: 'demo1', name: '宫保鸡丁', category: '热菜', price: 38, desc: '经典川菜，鸡肉配花生米，香辣可口', emoji: '🍗', image: '' },
+      { id: 'demo2', name: '麻婆豆腐', category: '热菜', price: 28, desc: '麻辣鲜香，嫩滑入味', emoji: '🌶️', image: '' },
+      { id: 'demo3', name: '蛋炒饭', category: '主食', price: 18, desc: '粒粒分明，蛋香浓郁', emoji: '🍚', image: '' },
+      { id: 'demo4', name: '酸辣汤', category: '汤品', price: 22, desc: '酸辣开胃，暖身佳品', emoji: '🍜', image: '' },
+      { id: 'demo5', name: '凉拌黄瓜', category: '凉菜', price: 12, desc: '清脆爽口，蒜香开胃', emoji: '🥒', image: '' },
+      { id: 'demo6', name: '柠檬水', category: '饮品', price: 8, desc: '新鲜柠檬，清凉解渴', emoji: '🍋', image: '' },
+      { id: 'demo7', name: '红烧肉', category: '热菜', price: 48, desc: '肥而不腻，入口即化', emoji: '🥩', image: '' },
+      { id: 'demo8', name: '芒果布丁', category: '甜点', price: 16, desc: '细腻顺滑，芒果飘香', emoji: '🍮', image: '' }
+    ];
+    await Store.saveDishes(demoDishes);
+    await renderDishes();
+  }
 }
+init();
+
+// Auto-refresh orders every 5 seconds when on orders tab
+setInterval(() => {
+  const ordersTab = document.querySelector('.admin-tab[data-tab="orders"]');
+  if (ordersTab && ordersTab.classList.contains('active')) {
+    renderOrders();
+  }
+}, 5000);
