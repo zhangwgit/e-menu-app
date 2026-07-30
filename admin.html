@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="菜单管理">
+  <link rel="manifest" href="manifest.json">
+  <title>商家后台 - 菜品管理</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header class="top-bar admin-header">
+      <h1 class="logo">⚙️ 商家后台</h1>
+      <a href="index.html" style="color:#fff;font-size:14px;text-decoration:none">顾客菜单 →</a>
+    </header>
+
+    <div class="admin-tabs">
+      <button class="admin-tab active" data-tab="dishes">菜品管理</button>
+      <button class="admin-tab" data-tab="orders">订单管理</button>
+      <button class="admin-tab" data-tab="add">添加菜品</button>
+    </div>
+
+    <!-- Tab: 菜品管理 -->
+    <div class="admin-content" id="tabDishes">
+      <div id="dishList"></div>
+      <div class="cart-empty" id="noDishes">还没有菜品，点击下方按钮添加</div>
+    </div>
+
+    <!-- Tab: 订单管理 -->
+    <div class="admin-content" id="tabOrders" style="display:none">
+      <div id="adminOrderList"></div>
+      <div class="cart-empty" id="noOrders">暂无订单</div>
+    </div>
+
+    <!-- Tab: 添加/编辑菜品 -->
+    <div class="admin-content" id="tabAdd" style="display:none">
+      <div class="form-section">
+        <h3 id="formTitle">添加新菜品</h3>
+        <input type="hidden" id="editId">
+
+        <div class="form-group">
+          <label>菜品图片</label>
+          <div class="img-upload-area" id="imgUploadArea">
+            <span class="upload-icon">📷</span>
+            <span class="upload-text">点击上传图片</span>
+          </div>
+          <input type="file" id="imgInput" accept="image/*" style="display:none">
+        </div>
+
+        <div class="form-group">
+          <label>菜品名称 *</label>
+          <input type="text" class="form-input" id="dishName" placeholder="例: 宫保鸡丁">
+        </div>
+
+        <div class="form-group">
+          <label>分类</label>
+          <select class="form-input" id="dishCategory">
+            <option value="热菜">热菜</option>
+            <option value="凉菜">凉菜</option>
+            <option value="主食">主食</option>
+            <option value="汤品">汤品</option>
+            <option value="饮品">饮品</option>
+            <option value="甜点">甜点</option>
+            <option value="小吃">小吃</option>
+            <option value="套餐">套餐</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label>价格 (元) *</label>
+          <input type="number" class="form-input" id="dishPrice" placeholder="0.00" min="0" step="0.01">
+        </div>
+
+        <div class="form-group">
+          <label>描述</label>
+          <textarea class="form-input" id="dishDesc" placeholder="简单介绍这道菜的特色..." rows="2"></textarea>
+        </div>
+
+        <div class="form-group">
+          <label>表情图标（可选，无图片时显示）</label>
+          <input type="text" class="form-input" id="dishEmoji" placeholder="🍽️" maxlength="2">
+        </div>
+
+        <button class="btn-primary btn-block" id="btnSaveDish">保存菜品</button>
+        <button class="btn-primary btn-block" id="btnCancelEdit" style="display:none;background:#86868b;margin-top:8px">取消编辑</button>
+      </div>
+    </div>
+
+    <!-- FAB: 添加菜品 -->
+    <button class="fab" id="fabAdd" title="添加菜品">+</button>
+
+    <!-- Toast -->
+    <div class="toast" id="toast"></div>
+  </div>
+
+  <script src="admin.js"></script>
+</body>
+</html>
