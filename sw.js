@@ -1,5 +1,5 @@
 // Service Worker for e-menu PWA
-const CACHE_NAME = 'emenu-cache-v1';
+const CACHE_NAME = 'emenu-cache-v2';
 const URLS_TO_CACHE = [
   './',
   './index.html',
