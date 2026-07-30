@@ -1,17 +1,68 @@
-// ===== Data Layer (localStorage) =====
+// ===== Supabase Cloud Store =====
+const SUPABASE_URL = 'https://nfgqlcurdxvlylovstgh.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5mZ3FsY3VyZHh2bHlsb3ZzdGdoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODUzOTEzMTYsImV4cCI6MjEwMDk2NzMxNn0.nTuCUoIRkbcAFVEFb7IqUJqAlXLHuHKCNnByYxkO7zI';
+
+function sbReq(method, path, body) {
+  return new Promise((resolve, reject) => {
+    const data = body ? JSON.stringify(body) : null;
+    const req = new XMLHttpRequest();
+    req.open(method, `${SUPABASE_URL}/rest/v1${path}`, true);
+    req.setRequestHeader('apikey', SUPABASE_ANON);
+    req.setRequestHeader('Authorization', `Bearer ${SUPABASE_ANON}`);
+    if (data) req.setRequestHeader('Content-Type', 'application/json');
+    if (method === 'POST' || method === 'PATCH' || method === 'DELETE') {
+      req.setRequestHeader('Prefer', 'return=representation');
+    }
+    req.onload = () => resolve({ status: req.status, data: req.responseText ? JSON.parse(req.responseText) : null });
+    req.onerror = () => reject(new Error('Network error'));
+    req.send(data);
+  });
+}
+
 const Store = {
-  getDishes() {
-    try { return JSON.parse(localStorage.getItem('emenu_dishes') || '[]'); }
-    catch { return []; }
+  async getDishes() {
+    try {
+      const res = await sbReq('GET', '/dishes?select=*&order=created_at.desc');
+      if (res.status >= 200 && res.status < 300) {
+        return Array.isArray(res.data) && res.data.length > 0 ? res.data : getLocalDishes();
+      }
+      return getLocalDishes();
+    } catch (e) {
+      console.error('getDishes error:', e);
+      return getLocalDishes();
+    }
   },
-  getOrders() {
-    try { return JSON.parse(localStorage.getItem('emenu_orders') || '[]'); }
-    catch { return []; }
+  async getOrders() {
+    try {
+      const res = await sbReq('GET', '/orders?select=*&order=created_at.desc');
+      if (res.status >= 200 && res.status < 300) return Array.isArray(res.data) ? res.data : [];
+      return [];
+    } catch (e) {
+      console.error('getOrders error:', e);
+      try { return JSON.parse(localStorage.getItem('emenu_orders') || '[]'); }
+      catch { return []; }
+    }
   },
-  saveOrders(orders) {
-    localStorage.setItem('emenu_orders', JSON.stringify(orders));
+  async saveOrder(order) {
+    try {
+      const res = await sbReq('POST', '/orders', order);
+      if (res.status >= 200 && res.status < 300) {
+        const orders = await this.getOrders();
+        localStorage.setItem('emenu_orders', JSON.stringify(orders));
+        return true;
+      }
+      return false;
+    } catch (e) {
+      console.error('saveOrder error:', e);
+      return false;
+    }
   }
 };
+
+function getLocalDishes() {
+  try { return JSON.parse(localStorage.getItem('emenu_dishes') || '[]'); }
+  catch { return []; }
+}
 
 // ===== Cart State =====
 let cart = []; // { id, name, price, qty, image }
@@ -41,7 +92,6 @@ let allDishes = [];
 
 // ===== Render Menu =====
 function renderMenu() {
-  allDishes = Store.getDishes();
   const categories = ['全部', ...new Set(allDishes.map(d => d.category).filter(Boolean))];
 
   // Category chips
@@ -175,7 +225,7 @@ function openOrderModal() {
   orderModal.classList.add('open');
 }
 
-function submitOrder() {
+async function submitOrder() {
   const tableNo = $('tableNo').value.trim();
   if (!tableNo) { showToast('请输入桌号'); return; }
   const remark = $('orderRemark').value.trim();
@@ -191,9 +241,8 @@ function submitOrder() {
     time: new Date().toLocaleString('zh-CN')
   };
 
-  const orders = Store.getOrders();
-  orders.unshift(order);
-  Store.saveOrders(orders);
+  const ok = await Store.saveOrder(order);
+  if (!ok) { showToast('下单失败，请重试'); return; }
 
   cart = [];
   updateCartUI();
@@ -204,8 +253,8 @@ function submitOrder() {
   showToast('🎉 下单成功！');
 }
 
-function openOrdersList() {
-  const orders = Store.getOrders();
+async function openOrdersList() {
+  const orders = await Store.getOrders();
   if (orders.length === 0) {
     ordersList.innerHTML = '';
     ordersEmpty.style.display = 'block';
@@ -276,10 +325,14 @@ cartOverlay.addEventListener('click', closeCart);
 // Checkout
 $('btnCheckout').addEventListener('click', openOrderModal);
 $('btnCloseOrder').addEventListener('click', () => orderModal.classList.remove('open'));
-$('btnSubmitOrder').addEventListener('click', submitOrder);
+$('btnSubmitOrder').addEventListener('click', async () => {
+  $('btnSubmitOrder').disabled = true;
+  try { await submitOrder(); }
+  finally { $('btnSubmitOrder').disabled = false; }
+});
 
 // Orders
-$('btnOrders').addEventListener('click', openOrdersList);
+$('btnOrders').addEventListener('click', async () => { await openOrdersList(); });
 $('btnCloseOrders').addEventListener('click', () => ordersModal.classList.remove('open'));
 
 // Close modals on overlay click
@@ -348,9 +401,9 @@ function spawnSpeedLines() {
 }
 
 // 滚动骰子主流程
-function rollDice() {
+async function rollDice() {
   if (diceRolling) return;
-  const dishes = Store.getDishes();
+  const dishes = await Store.getDishes();
   if (dishes.length === 0) { showToast('暂无菜品可抽'); return; }
 
   diceRolling = true;
@@ -441,7 +494,7 @@ function showDiceResult(dish) {
 }
 
 // 事件绑定
-$('btnDice').addEventListener('click', rollDice);
+$('btnDice').addEventListener('click', async () => { await rollDice(); });
 
 $('btnDiceOrder').addEventListener('click', () => {
   if (!selectedDish) return;
@@ -453,7 +506,7 @@ $('btnDiceOrder').addEventListener('click', () => {
 
 $('btnDiceReroll').addEventListener('click', () => {
   diceResult.classList.remove('active');
-  setTimeout(rollDice, 300);
+  setTimeout(async () => { await rollDice(); }, 300);
 });
 
 $('btnDiceClose').addEventListener('click', () => {
@@ -462,8 +515,8 @@ $('btnDiceClose').addEventListener('click', () => {
   diceRolling = false;
 });
 
-// ===== Demo Data (if empty) =====
-if (Store.getDishes().length === 0) {
+// ===== Demo Data (fallback) =====
+function seedDemoDishes() {
   const demoDishes = [
     { id: 'demo1', name: '宫保鸡丁', category: '热菜', price: 38, desc: '经典川菜，鸡肉配花生米，香辣可口', emoji: '🍗', image: '' },
     { id: 'demo2', name: '麻婆豆腐', category: '热菜', price: 28, desc: '麻辣鲜香，嫩滑入味', emoji: '🌶️', image: '' },
@@ -475,10 +528,18 @@ if (Store.getDishes().length === 0) {
     { id: 'demo8', name: '芒果布丁', category: '甜点', price: 16, desc: '细腻顺滑，芒果飘香', emoji: '🍮', image: '' }
   ];
   localStorage.setItem('emenu_dishes', JSON.stringify(demoDishes));
+  return demoDishes;
 }
 
 // ===== Init =====
-renderMenu();
+async function init() {
+  allDishes = await Store.getDishes();
+  if (allDishes.length === 0) {
+    allDishes = seedDemoDishes();
+  }
+  renderMenu();
+}
+init();
 
 // Register Service Worker
 if ('serviceWorker' in navigator) {
